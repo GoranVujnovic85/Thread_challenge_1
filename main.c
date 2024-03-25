@@ -17,7 +17,6 @@ Na konzoli se ispisuje trenutno vreme.
 
 static pthread_mutex_t mutex;
 static sem_t semaphore;
-static sem_t semaphore_command;
 static int command;
 
 typedef enum
@@ -28,84 +27,86 @@ typedef enum
 
 }Command;
 
+
 void* userInterface (void* args)
 {
-   int index = *(int*)args;
-   int semVal;
-
    while (1)
    {
       printf("Enter the command: ");
       scanf("%d", &command);
-
-      sem_post(&semaphore);
-      //sem_post(&semaphore_command);
-      //sem_getvalue(&semaphore, &semVal);
-      //printf("(%d) Current semaphore value after post is %d\n", index, semVal);
+      
+      if (command < 0 || command > 3)
+      {
+         printf("You should enter 1, 2 or 3!\n");
+         continue;
+      }
+      sem_post(&semaphore);   
    }
 }
 
 void* countAndSleep (void* args)
 {
-   int index = *(int*)args;
-   int semVal;
    int sec = 0;
-   
-   while (1) 
+
+   while (1)
    {
       sem_wait(&semaphore);
-      //sem_getvalue(&semaphore, &semVal);
-      //printf("(%d) Current semaphore value after wait is %d\n", index, semVal);
-      pthread_mutex_lock(&mutex); 
-      
-      if (command == start_command) 
+
+      switch (command)
       {
-         pthread_mutex_unlock(&mutex);
-         while (1) 
-         {
-            printf("%d sec\n", sec);
-            sec++;
-            sleep(1); 
-            pthread_mutex_lock(&mutex); 
-            if (command != start_command)
+         case start_command:
+
+            while (command == start_command)
             {
-               pthread_mutex_unlock(&mutex);
-               break; 
-            }
-            pthread_mutex_unlock(&mutex);
-            
-         }
-      } 
-      else if (command == pause_command) 
-      {
-         printf("Pause!\n");
-      } 
-      else if (command == reset_command) 
-      {
-         sec = 0;
+               pthread_mutex_lock(&mutex);
+               printf("%d sec\n", sec);
+               sec++;
+               sleep(1);  
+               pthread_mutex_unlock(&mutex);    
+
+            }  
+         break;  
+           
+         case pause_command:
+         
+            pthread_mutex_lock(&mutex);
+            printf("Pause!\n");
+            pthread_mutex_unlock(&mutex); 
+
+         break;
+         
+         case reset_command:
+         
+            pthread_mutex_lock(&mutex); 
+            sec = 0;
+            pthread_mutex_unlock(&mutex); 
+         
+         break;
+
+         default:
+         break;
       }
-      pthread_mutex_unlock(&mutex);
-   }
+   }  
 }
+
 
 int main(int argc, char *argv[])
 {
-   pthread_t t1, t2;
-
+   pthread_t t1;
+   pthread_t t2;
+   
    sem_init(&semaphore, 0, 0);
    pthread_mutex_init(&mutex, NULL);
 
-   int i;
-   int* a = malloc(sizeof(int));
-   *a = i;
-
-   pthread_create(&t1, NULL, &userInterface , a);
-   pthread_create(&t2, NULL, &countAndSleep , a);
-
+   pthread_create(&t1, NULL, &userInterface , 0);
+   pthread_create(&t2, NULL, &countAndSleep , 0);
+   
    pthread_join(t1, NULL);
    pthread_join(t2, NULL);
-
+  
    sem_destroy(&semaphore);
    pthread_mutex_destroy(&mutex);
+
    return 0;
+
 }
